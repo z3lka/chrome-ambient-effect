@@ -1,0 +1,94 @@
+html.yt-ambient-focus {
+  background: transparent !important;
+}
+
+html.yt-ambient-focus body {
+  background: transparent !important;
+}
+
+#yt-ambient-backdrop {
+  filter: blur(56px) saturate(2.7) brightness(1.05) contrast(1.08);
+  height: 120vh;
+  inset: -10vh -10vw;
+  opacity: 1;
+  pointer-events: none;
+  position: fixed;
+  transform: scale(1.08);
+  transition: opacity 100ms linear;
+  width: 120vw;
+  z-index: 0;
+}
+
+html.yt-ambient-glow-off #yt-ambient-backdrop {
+  opacity: 0;
+}
+
+html.yt-ambient-focus ytd-app {
+  background: rgba(255, 255, 255, 0.025) !important;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+html.yt-ambient-focus ytd-page-manager,
+html.yt-ambient-focus ytd-watch-flexy,
+html.yt-ambient-focus ytd-watch-flexy #columns,
+html.yt-ambient-focus ytd-watch-flexy #primary,
+html.yt-ambient-focus ytd-watch-flexy #primary-inner,
+html.yt-ambient-focus ytd-watch-flexy #below {
+  background: transparent !important;
+}
+
+html.yt-ambient-focus ytd-masthead,
+html.yt-ambient-focus #masthead-container,
+html.yt-ambient-focus ytd-mini-guide-renderer,
+html.yt-ambient-focus tp-yt-app-drawer,
+html.yt-ambient-focus #cinematics,
+html.yt-ambient-focus #cinematics-container,
+html.yt-ambient-focus ytd-watch-flexy #secondary,
+html.yt-ambient-focus ytd-watch-flexy #related,
+html.yt-ambient-focus ytd-watch-flexy #chat-container,
+html.yt-ambient-focus ytd-watch-flexy #below,
+html.yt-ambient-focus ytd-watch-next-secondary-results-renderer {
+  display: none !important;
+}
+
+html.yt-ambient-focus #content.ytd-app,
+html.yt-ambient-focus ytd-page-manager,
+html.yt-ambient-focus ytd-watch-flexy {
+  margin: 0 !important;
+}
+
+html.yt-ambient-focus ytd-watch-flexy #columns {
+  align-items: center !important;
+  justify-content: center !important;
+  max-width: none !important;
+  min-height: 100vh !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+html.yt-ambient-focus ytd-watch-flexy #primary {
+  flex: 0 0 min(1280px, 86vw, calc(86vh * 16 / 9)) !important;
+  margin: 0 auto !important;
+  max-width: min(1280px, 86vw, calc(86vh * 16 / 9)) !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  width: min(1280px, 86vw, calc(86vh * 16 / 9)) !important;
+}
+
+html.yt-ambient-focus #movie_player {
+  box-shadow: 0 24px 100px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.yt-ambient-toggle {
+  box-sizing: border-box !important;
+  color: #fff !important;
+  font: 700 10px/36px Arial, sans-serif !important;
+  text-align: center !important;
+  width: 52px !important;
+}
+
+.yt-ambient-toggle[aria-pressed="true"] {
+  border-bottom: 3px solid #3ea6ff !important;
+}

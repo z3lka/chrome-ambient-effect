@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+"""Dependency-free WebDriver checks. Runs in a separate automation browser session."""
+import argparse
+import base64
+import json
+from pathlib import Path
+import socket
+import subprocess
+import time
+import urllib.error
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+class Browser:
+    def __init__(self, name, extension=None):
+        port = free_port()
+        self.url = f"http://127.0.0.1:{port}"
+        self.session = None
+        self.name = name
+        self.log = open(ROOT / "test-results" / f"{name}-driver.log", "w")
+        chrome_driver = ROOT / "build/tools/chromedriver-mac-arm64/chromedriver"
+        command = ["safaridriver", "-p", str(port)] if name == "safari" else [str(chrome_driver) if chrome_driver.exists() else "chromedriver", f"--port={port}"]
+        self.process = subprocess.Popen(command, stdout=self.log, stderr=self.log)
+        for _ in range(50):
+            try:
+                self.request("GET", "/status")
+                break
+            except (OSError, RuntimeError):
+                time.sleep(0.1)
+        capabilities = {"browserName": name, "pageLoadStrategy": "eager"}
+        if name == "chrome":
+            capabilities["goog:loggingPrefs"] = {"browser": "ALL"}
+            chrome_args = ["--autoplay-policy=no-user-gesture-required"]
+            if extension:
+                chrome_args += [f"--disable-extensions-except={extension}", f"--load-extension={extension}"]
+            capabilities["goog:chromeOptions"] = {"args": chrome_args}
+            test_chrome = ROOT / "build/tools/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+            if extension and test_chrome.exists():
+                capabilities["goog:chromeOptions"]["binary"] = str(test_chrome)
+        try:
+            session = self.request("POST", "/session", {"capabilities": {"alwaysMatch": capabilities}})
+            self.session = session["sessionId"]
+            self.capabilities = session["capabilities"]
+            self.request("POST", "/timeouts", {"script": 30000, "pageLoad": 45000})
+        except Exception:
+            self.close()
+            raise
+
+    def request(self, method, path, data=None):
+        prefix = f"/session/{self.session}" if self.session else ""
+        request = urllib.request.Request(self.url + prefix + path, method=method,
+                                         data=json.dumps(data).encode() if data is not None else None,
+                                         headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=50) as response:
+                result = json.load(response)
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(error.read().decode()) from error
+        return result.get("value")
+
+    def script(self, script, *args):
+        return self.request("POST", "/execute/sync", {"script": script, "args": list(args)})
+
+    def screenshot(self, name):
+        (ROOT / "test-results" / f"{self.name}-{name}.png").write_bytes(
+            base64.b64decode(self.request("GET", "/screenshot")))
+
+    def close(self):
+        if self.session:
+            try:
+                self.request("DELETE", "")
+            except (OSError, RuntimeError):
+                pass
+        self.process.terminate()
+        self.process.wait(timeout=10)
+        self.log.close()
+
+
+def live_probe(browser):
+    browser.request("POST", "/url", {"url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"})
+    for _ in range(40):
+        info = browser.script("""
+            const v = document.querySelector('#movie_player video');
+            if (v) { v.muted = true; v.play().catch(() => {}); }
+            return {title: document.title, video: !!v, ready: v?.readyState,
+                    width: v?.videoWidth, height: v?.videoHeight,
+                    error: document.querySelector('.ytp-error-content-wrap')?.textContent};
+        """)
+        if info.get("ready", 0) >= 2:
+            break
+        time.sleep(0.5)
+    result = browser.script("""
+        const v = document.querySelector('#movie_player video');
+        const p = document.querySelector('#movie_player');
+        if (!v || v.readyState < 2) return {ok: false, reason: 'No playable video frame'};
+        const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+        let draw = false, readable = false, error = null;
+        try {
+            const ctx = c.getContext('2d'); ctx.drawImage(v, 0, 0, 160, 90); draw = true;
+            try { ctx.getImageData(0, 0, 1, 1); readable = true; } catch (_) {}
+        } catch (e) { error = e.message; }
+        const old = p.getAttribute('style');
+        const width = Math.min(innerWidth * .7, innerHeight * .7 * v.videoWidth / v.videoHeight);
+        p.style.setProperty('width', width + 'px', 'important');
+        p.style.setProperty('height', width * v.videoHeight / v.videoWidth + 'px', 'important');
+        const rect = p.getBoundingClientRect();
+        if (old === null) p.removeAttribute('style'); else p.setAttribute('style', old);
+        return {ok: draw && Math.abs(rect.width - width) < 2, draw, readable, error,
+                frameCallback: typeof v.requestVideoFrameCallback === 'function',
+                actual: {width: rect.width, height: rect.height}, expectedWidth: width};
+    """)
+    browser.screenshot("live-probe")
+    return {"page": info, "probe": result}
+
+
+def ambient_probe(browser):
+    result = None
+    for _ in range(80):
+        result = browser.script(r"""
+            const c = document.querySelector('#yt-ambient-backdrop');
+            const primary = document.querySelector('ytd-watch-flexy #primary');
+            const secondary = document.querySelector('ytd-watch-flexy #secondary');
+            const masthead = document.querySelector('ytd-masthead');
+            const below = document.querySelector('ytd-watch-flexy #below');
+            if (!c || Number(c.dataset.frames) < 1) {
+                return {ok: false, reason: 'Waiting for ambient frame'};
+            }
+            const pixels = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+            let colorful = 0, samples = 0;
+            for (let i = 3; i < pixels.length; i += 64) {
+                const red = pixels[i - 3], green = pixels[i - 2], blue = pixels[i - 1];
+                if (Math.max(red, green, blue) - Math.min(red, green, blue) > 20) colorful++;
+                samples++;
+            }
+            const rect = primary?.getBoundingClientRect();
+            const active = document.documentElement.classList.contains('yt-ambient-focus');
+            const sidebarHidden = !!secondary && getComputedStyle(secondary).display === 'none';
+            const chromeHidden = !!masthead && !!below &&
+                getComputedStyle(masthead).display === 'none' && getComputedStyle(below).display === 'none';
+            const centered = !!rect &&
+                Math.abs(rect.left + rect.width / 2 - innerWidth / 2) < innerWidth * .08 &&
+                Math.abs(rect.top + rect.height / 2 - innerHeight / 2) < innerHeight * .08;
+            const filtered = getComputedStyle(c).filter.includes('blur');
+            const layer = getComputedStyle(document.querySelector('ytd-app')).backgroundColor;
+            const alpha = Number(layer.match(/rgba?\([^)]*,\s*([\d.]+)\)$/)?.[1] ?? 1);
+            const translucent = alpha <= .2;
+            const frames = Number(c.dataset.frames);
+            return {ok: active && sidebarHidden && chromeHidden && centered && translucent &&
+                        filtered && frames > 1 && colorful > 5,
+                    active, sidebarHidden, chromeHidden, centered, translucent, layer, filtered,
+                    frames, colorful, samples,
+                    primary: rect && {left: rect.left, top: rect.top, width: rect.width, height: rect.height},
+                    viewport: {width: innerWidth, height: innerHeight},
+                    canvas: {width: c.width, height: c.height}};
+        """)
+        if result and result.get("ok"):
+            break
+        time.sleep(0.25)
+    if result is None:
+        result = {"ok": False, "reason": "Page changed while reading extension state"}
+    if result.get("ok"):
+        initial_frames = result["frames"]
+        time.sleep(6)
+        stability = browser.script("""
+            const canvas = document.querySelector('#yt-ambient-backdrop');
+            const video = document.querySelector('#movie_player video.html5-main-video');
+            const delayedLayers = ['#cinematics', '#cinematics-container', '#player-full-bleed-container']
+                .map(selector => {
+                    const element = document.querySelector(selector);
+                    if (!element) return {selector, present: false};
+                    const style = getComputedStyle(element);
+                    return {selector, present: true, display: style.display, opacity: style.opacity,
+                            background: style.backgroundColor, zIndex: style.zIndex};
+                });
+            return {frames: Number(canvas?.dataset.frames || 0),
+                    canvasVideoTime: Number(canvas?.dataset.videoTime || 0),
+                    videoTime: video?.currentTime, readyState: video?.readyState, delayedLayers};
+        """)
+        stability["advanced"] = stability["frames"] >= initial_frames + 20
+        stability["fresh"] = abs(stability["videoTime"] - stability["canvasVideoTime"]) < 1
+        result["stability"] = stability
+        result["ok"] = result["ok"] and stability["advanced"] and stability["fresh"]
+
+    if result.get("ok"):
+        toggle = browser.script("""
+            const button = document.querySelector('.yt-ambient-toggle');
+            const canvas = document.querySelector('#yt-ambient-backdrop');
+            const start = performance.now();
+            button.click();
+            return {milliseconds: performance.now() - start,
+                    focusStillActive: document.documentElement.classList.contains('yt-ambient-focus'),
+                    glowOff: document.documentElement.classList.contains('yt-ambient-glow-off'),
+                    canvasPreserved: canvas === document.querySelector('#yt-ambient-backdrop'),
+                    pressed: button.getAttribute('aria-pressed')};
+        """)
+        result["toggle"] = toggle
+        result["ok"] = result["ok"] and toggle["focusStillActive"] and toggle["glowOff"] \
+            and toggle["canvasPreserved"] and toggle["pressed"] == "false" and toggle["milliseconds"] < 50
+        browser.script("document.querySelector('.yt-ambient-toggle').click()")
+        time.sleep(0.2)
+    browser.screenshot("ambient")
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("browser", choices=["safari", "chrome"])
+    parser.add_argument("--live", action="store_true")
+    parser.add_argument("--extension", type=Path)
+    args = parser.parse_args()
+    (ROOT / "test-results").mkdir(exist_ok=True)
+    extension = args.extension.resolve() if args.extension else None
+    browser = Browser(args.browser, extension)
+    try:
+        result = {"capabilities": browser.capabilities}
+        if args.live:
+            result["live"] = live_probe(browser)
+        if extension:
+            result["ambient"] = ambient_probe(browser)
+            if not result["ambient"].get("ok"):
+                logs = browser.request("POST", "/log", {"type": "browser"})
+                result["ambient"]["browserLog"] = [
+                    entry for entry in logs if "chrome-extension://" in entry["message"]
+                ]
+        print(json.dumps(result, indent=2))
+        (ROOT / "test-results" / f"{args.browser}.json").write_text(json.dumps(result, indent=2) + "\n")
+        if (args.live and not result["live"]["probe"].get("ok")) or (extension and not result["ambient"].get("ok")):
+            raise SystemExit(1)
+    finally:
+        browser.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Ambient Focus",
+  "version": "0.1.0",
+  "description": "Centers YouTube videos, hides distractions, and reflects video colors into the background.",
+  "action": {
+    "default_title": "Toggle ambient focus"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/*"],
+      "css": ["content.css"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
