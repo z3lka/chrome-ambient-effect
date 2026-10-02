@@ -31,7 +31,7 @@ This file contains copy-ready listing and privacy text for version `0.1.0`.
 ## Graphic assets
 
 - Store icon: `chrome/icons/icon128.png` (128×128 PNG)
-- Screenshot: `store-assets/screenshot-1.png` (1280×800 PNG)
+- Screenshot source: `store-assets/sample_im2.png` (export a 1280×800 PNG before submission)
 - Small promo tile: `store-assets/promo-small.png` (440×280 PNG)
 - Marquee promo tile: optional and not included
 - Promotional video: optional and not included

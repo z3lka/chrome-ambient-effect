@@ -1,46 +1,73 @@
-# Ambient Focus for YouTube™
+<div align="center">
+  <img src="chrome/icons/icon128.png" width="112" height="112" alt="Ambient Focus icon">
 
-A small, open-source Chrome extension that turns a YouTube watch page into a
-focused viewing space. It centers the player, hides surrounding distractions,
-and reflects the current video's colors into an ambient background.
+  <h1>Ambient Focus for YouTube™</h1>
 
-![Ambient Focus enabled on a YouTube watch page](store-assets/screenshot-1.png)
+  <p>
+    A calm, cinematic YouTube layout with a centered player and<br>
+    an ambient background generated locally from the current video.
+  </p>
+
+  <img src="store-assets/promo-small.png" width="440" alt="Ambient Focus promotional artwork">
+
+  <p>
+    <a href="#features">Features</a> ·
+    <a href="#install-from-source">Install</a> ·
+    <a href="#controls">Controls</a> ·
+    <a href="#privacy">Privacy</a> ·
+    <a href="#development">Development</a>
+  </p>
+</div>
+
+## Preview
+
+<table>
+  <tr>
+    <td><img src="store-assets/sample_im.png" alt="Ambient Focus with a soft sampled background"></td>
+    <td><img src="store-assets/sample_im2.png" alt="Ambient Focus with a vivid sampled background"></td>
+  </tr>
+</table>
 
 ## Features
 
-- Centers the video player and hides the header, recommendations, chat, and
-  content below the player.
+- Centers the video and hides the header, recommendations, chat, and content
+  below the player.
 - Offers blurred-video and sampled-gradient ambient backgrounds.
-- Toggles instantly from the **GLOW** player control or the extension toolbar
-  button.
-- Restores the normal page layout when disabled.
-- Uses no analytics, accounts, tracking, remote code, or external services.
+- Restores YouTube's normal layout instantly when disabled.
+- Runs entirely in the current tab with no analytics, accounts, tracking,
+  remote code, or external services.
+- Uses plain JavaScript and CSS with no build step or runtime dependencies.
 
 ## Install from source
 
 1. Download or clone this repository.
 2. Open `chrome://extensions` in Chrome.
 3. Enable **Developer mode**.
-4. Choose **Load unpacked** and select the repository's `chrome` directory.
-5. Open a YouTube video.
+4. Select **Load unpacked**.
+5. Choose the repository's `chrome` directory.
+6. Open a YouTube video.
 
-The extension activates automatically on watch pages. Use **GLOW** to turn the
-focused layout on or off, press **Escape** to return to the normal layout, and
-use **BLUR**/**GRAD** to change the background style.
+Ambient Focus activates automatically on standard YouTube watch pages.
+
+## Controls
+
+| Control | Action |
+| --- | --- |
+| **GLOW** | Turn Ambient Focus on or off |
+| **BLUR / GRAD** | Switch the ambient background style |
+| **Escape** | Return to YouTube's normal layout |
+| Extension toolbar icon | Turn Ambient Focus on or off |
 
 ## Privacy
 
-Ambient Focus reads the current video frames only inside the open YouTube watch
-page to draw the background locally. Frames are not stored, transmitted, or
-shared. See the full [privacy policy](PRIVACY.md).
+Video frames are reduced to a low-resolution canvas inside the open tab and
+used only to draw the ambient background. Nothing is stored or transmitted.
+See the full [privacy policy](PRIVACY.md).
 
 ## Development
 
-The extension uses plain JavaScript and CSS with no build step or runtime
-dependencies. The uploadable extension is the contents of `chrome` with
-`manifest.json` at the root.
-
-To create a release archive:
+The uploadable extension is the contents of `chrome`, with `manifest.json` at
+the root. To create a release archive:
 
 ```sh
 mkdir -p dist
@@ -48,8 +75,7 @@ cd chrome
 zip -r ../dist/ambient-focus-for-youtube-0.1.0.zip . -x '*.DS_Store'
 ```
 
-To run the live browser check, install a ChromeDriver version compatible with
-your Chrome version and run:
+Run the live browser check with a compatible ChromeDriver:
 
 ```sh
 python3 tests/browser_check.py chrome --live --extension chrome
@@ -60,19 +86,15 @@ to `test-results`.
 
 ## Contributing
 
-Bug reports and focused pull requests are welcome. Please describe the YouTube
-page state that triggered the issue and run the browser check when changing
-layout or rendering behavior.
+Bug reports and focused pull requests are welcome. When changing layout or
+rendering behavior, describe the YouTube page state and run the browser check.
 
-## Release resources
-
-Copy-ready Chrome Web Store text and submission notes are in
-[STORE_LISTING.md](STORE_LISTING.md). Store artwork lives in `store-assets` and
-is intentionally excluded from the extension ZIP.
+Chrome Web Store copy and submission notes are available in
+[STORE_LISTING.md](STORE_LISTING.md).
 
 ## License
 
-[MIT](LICENSE)
+Released under the [MIT License](LICENSE).
 
 YouTube is a trademark of Google LLC. This project is independent and is not
 affiliated with, endorsed by, or sponsored by Google LLC.
