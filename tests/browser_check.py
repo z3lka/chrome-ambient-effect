@@ -141,6 +141,9 @@ def ambient_probe(browser):
                 samples++;
             }
             const rect = primary?.getBoundingClientRect();
+            const playerRect = document.querySelector('#movie_player')?.getBoundingClientRect();
+            const playerContainerRect = document.querySelector('#player')?.getBoundingClientRect();
+            const fullBleedRect = document.querySelector('#player-full-bleed-container')?.getBoundingClientRect();
             const active = document.documentElement.classList.contains('yt-ambient-focus');
             const sidebarHidden = !!secondary && getComputedStyle(secondary).display === 'none';
             const chromeHidden = !!masthead && !!below &&
@@ -158,6 +161,13 @@ def ambient_probe(browser):
                     active, sidebarHidden, chromeHidden, centered, translucent, layer, filtered,
                     frames, colorful, samples,
                     primary: rect && {left: rect.left, top: rect.top, width: rect.width, height: rect.height},
+                    player: playerRect && {left: playerRect.left, top: playerRect.top,
+                        width: playerRect.width, height: playerRect.height},
+                    playerContainer: playerContainerRect && {left: playerContainerRect.left,
+                        top: playerContainerRect.top, width: playerContainerRect.width,
+                        height: playerContainerRect.height},
+                    fullBleed: fullBleedRect && {left: fullBleedRect.left, top: fullBleedRect.top,
+                        width: fullBleedRect.width, height: fullBleedRect.height},
                     viewport: {width: innerWidth, height: innerHeight},
                     canvas: {width: c.width, height: c.height}};
         """)
@@ -190,22 +200,92 @@ def ambient_probe(browser):
         result["ok"] = result["ok"] and stability["advanced"] and stability["fresh"]
 
     if result.get("ok"):
+        style = browser.script("""
+            const button = document.querySelector('.yt-ambient-style-toggle');
+            button.click();
+            const canvas = document.querySelector('#yt-ambient-backdrop');
+            return {gradient: document.documentElement.classList.contains('yt-ambient-gradient'),
+                    focusActive: document.documentElement.classList.contains('yt-ambient-focus'),
+                    label: button.textContent, width: canvas?.width, height: canvas?.height,
+                    filtered: getComputedStyle(canvas).filter.includes('blur')};
+        """)
+        result["style"] = style
+        result["ok"] = result["ok"] and style["gradient"] and style["focusActive"] \
+            and style["label"] == "GRAD" and style["width"] == 12 and style["height"] >= 4 \
+            and style["filtered"]
+
+    if result.get("ok"):
         toggle = browser.script("""
             const button = document.querySelector('.yt-ambient-toggle');
             const canvas = document.querySelector('#yt-ambient-backdrop');
+            const masthead = document.querySelector('ytd-masthead');
+            const below = document.querySelector('ytd-watch-flexy #below');
             const start = performance.now();
+            button.focus();
             button.click();
             return {milliseconds: performance.now() - start,
-                    focusStillActive: document.documentElement.classList.contains('yt-ambient-focus'),
-                    glowOff: document.documentElement.classList.contains('yt-ambient-glow-off'),
-                    canvasPreserved: canvas === document.querySelector('#yt-ambient-backdrop'),
+                    focusActive: document.documentElement.classList.contains('yt-ambient-focus'),
+                    gradientActive: document.documentElement.classList.contains('yt-ambient-gradient'),
+                    canvasRemoved: canvas.isConnected === false,
+                    mastheadRestored: getComputedStyle(masthead).display !== 'none',
+                    belowRestored: getComputedStyle(below).display !== 'none',
+                    buttonBlurred: document.activeElement !== button,
                     pressed: button.getAttribute('aria-pressed')};
         """)
         result["toggle"] = toggle
-        result["ok"] = result["ok"] and toggle["focusStillActive"] and toggle["glowOff"] \
-            and toggle["canvasPreserved"] and toggle["pressed"] == "false" and toggle["milliseconds"] < 50
-        browser.script("document.querySelector('.yt-ambient-toggle').click()")
+        result["ok"] = result["ok"] and not toggle["focusActive"] and not toggle["gradientActive"] \
+            and toggle["canvasRemoved"] and toggle["mastheadRestored"] and toggle["belowRestored"] \
+            and toggle["buttonBlurred"] and toggle["pressed"] == "false" \
+            and toggle["milliseconds"] < 50
         time.sleep(0.2)
+        result["toggle"]["layout"] = browser.script("""
+            const rect = selector => {
+                const value = document.querySelector(selector)?.getBoundingClientRect();
+                return value && {left: value.left, top: value.top,
+                    width: value.width, height: value.height};
+            };
+            return {player: rect('#movie_player'), playerContainer: rect('#player'),
+                    primary: rect('ytd-watch-flexy #primary'),
+                    columns: rect('ytd-watch-flexy #columns')};
+        """)
+        layout = result["toggle"]["layout"]
+        result["ok"] = result["ok"] and layout["player"]["width"] <= layout["primary"]["width"] \
+            and abs(layout["player"]["width"] - layout["playerContainer"]["width"]) < 2 \
+            and abs(layout["player"]["height"] - layout["playerContainer"]["height"]) < 2
+        browser.script("document.querySelector('.ytp-size-button')?.click(); document.querySelector('.yt-ambient-toggle').click()")
+        time.sleep(0.5)
+        result["reactivation"] = browser.script("""
+            const rect = selector => {
+                const value = document.querySelector(selector)?.getBoundingClientRect();
+                return value && {left: value.left, top: value.top,
+                    width: value.width, height: value.height};
+            };
+            return {player: rect('#movie_player'), playerContainer: rect('#player'),
+                    fullBleed: rect('#player-full-bleed-container'),
+                    primary: rect('ytd-watch-flexy #primary'),
+                    watchAttributes: [...document.querySelector('ytd-watch-flexy').attributes]
+                        .map(attribute => attribute.name)};
+        """)
+        reactivation = result["reactivation"]
+        expected_width = min(1280, result["viewport"]["width"] * .86,
+                             result["viewport"]["height"] * .86 * 16 / 9)
+        result["ok"] = result["ok"] \
+            and abs(reactivation["player"]["left"] + reactivation["player"]["width"] / 2
+                    - result["viewport"]["width"] / 2) < 2 \
+            and abs(reactivation["player"]["width"] - expected_width) < 2
+        result["escape"] = browser.script("""
+            const canvas = document.querySelector('#yt-ambient-backdrop');
+            document.dispatchEvent(new KeyboardEvent('keydown',
+                {key: 'Escape', bubbles: true}));
+            return {focusActive: document.documentElement.classList.contains('yt-ambient-focus'),
+                    gradientActive: document.documentElement.classList.contains('yt-ambient-gradient'),
+                    canvasRemoved: canvas.isConnected === false,
+                    pressed: document.querySelector('.yt-ambient-toggle')?.getAttribute('aria-pressed')};
+        """)
+        escape = result["escape"]
+        result["ok"] = result["ok"] and not escape["focusActive"] \
+            and not escape["gradientActive"] and escape["canvasRemoved"] \
+            and escape["pressed"] == "false"
     browser.screenshot("ambient")
     return result
 

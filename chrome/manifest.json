@@ -1,17 +1,29 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Ambient Focus",
+  "name": "Ambient Focus for YouTube™",
+  "short_name": "Ambient Focus",
   "version": "0.1.0",
-  "description": "Centers YouTube videos, hides distractions, and reflects video colors into the background.",
+  "description": "Centers the video, hides distractions, and creates a local ambient background on YouTube™.",
+  "homepage_url": "https://github.com/z3lka/chrome-ambient-effect",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
-    "default_title": "Toggle ambient focus"
+    "default_title": "Toggle ambient focus",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://www.youtube.com/*"],
+      "matches": ["https://www.youtube.com/*"],
       "css": ["content.css"],
       "js": ["content.js"],
       "run_at": "document_idle"
