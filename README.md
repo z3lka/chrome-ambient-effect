@@ -28,6 +28,10 @@
   </tr>
 </table>
 
+## Demo video on YouTube
+
+[![Watch the demo](store-assets/promo-small.png)](https://youtu.be/peXrH_4yxUw)
+
 ## Features
 
 - Centers the video and hides the header, recommendations, chat, and content
@@ -51,12 +55,12 @@ Ambient Focus activates automatically on standard YouTube watch pages.
 
 ## Controls
 
-| Control | Action |
-| --- | --- |
-| **GLOW** | Turn Ambient Focus on or off |
-| **BLUR / GRAD** | Switch the ambient background style |
-| **Escape** | Return to YouTube's normal layout |
-| Extension toolbar icon | Turn Ambient Focus on or off |
+| Control                | Action                              |
+| ---------------------- | ----------------------------------- |
+| **GLOW**               | Turn Ambient Focus on or off        |
+| **BLUR / GRAD**        | Switch the ambient background style |
+| **Escape**             | Return to YouTube's normal layout   |
+| Extension toolbar icon | Turn Ambient Focus on or off        |
 
 ## Privacy
 
